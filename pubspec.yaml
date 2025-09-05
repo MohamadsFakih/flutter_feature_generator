@@ -1,6 +1,6 @@
 name: flutter_feature_generator
 description: A powerful code generator for creating clean architecture features in Flutter projects from OpenAPI/Swagger specifications.
-version: 1.0.5
+version: 1.0.7
 repository: https://github.com/MohamadsFakih/flutter_feature_generator
 homepage: https://onepub.dev/packages/flutter_feature_generator
 documentation: https://github.com/MohamadsFakih/flutter_feature_generator/blob/master/README.md

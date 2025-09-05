@@ -27,24 +27,69 @@ class FeatureGenerator {
       // Load swagger specification
       await loadSwaggerSpec();
 
+      // Check if running with command line arguments
+      if (arguments.isNotEmpty) {
+        await _runNonInteractiveMode(arguments);
+        return;
+      }
+
+      // Use hybrid mode: show options first, then guide user to use command line
+      print('\n💡 Due to Windows PowerShell input issues, this script works best with command-line arguments.');
+      print('📋 Here are your options:');
+      print('');
+      
+      await _showAvailableEndpoints();
+      
+      print('\n🚀 To generate a feature, use this format:');
+      print('   dart bin/flutter_feature_generator.dart <feature_name> <endpoint_numbers>');
+      print('');
+      print('💡 Examples:');
+      print('   dart bin/flutter_feature_generator.dart compliment 15');
+      print('   dart bin/flutter_feature_generator.dart user_management 1,3,5');
+      print('   dart bin/flutter_feature_generator.dart api_features all');
+      print('');
+      print('ℹ️  Feature name should be in snake_case (e.g., user_management, products, etc.)');
+      
+      return; // Exit here instead of hanging
+
+      print('🔍 DEBUG: Loaded swagger..');
+      stdout.flush();
+      
       // Select endpoints interactively
+      print('🔍 DEBUG: Starting endpoint selection...');
+      stdout.flush();
       final selectedEndpoints = await selectEndpointsInteractively();
+      
+      print('🔍 DEBUG: Endpoint selection completed. Count: ${selectedEndpoints.length}');
+      stdout.flush();
       
       if (selectedEndpoints.isEmpty) {
         print('❌ No endpoints selected. Exiting.');
         return;
       }
 
+      print('🔍 DEBUG: About to call _getValidFeatureName()...');
+      stdout.flush();
+
       // Get feature name with validation
       final featureName = await _getValidFeatureName();
+      
+      print('🔍 DEBUG: _getValidFeatureName() returned: "$featureName"');
+      stdout.flush();
       
       if (featureName == null) {
         print('❌ Feature name is required');
         return;
       }
 
+      print('🔍 DEBUG: About to call generateFeature()...');
+      stdout.flush();
+
       // Generate the feature
       await generateFeature(featureName, selectedEndpoints);
+      
+      print('🔍 DEBUG: generateFeature() completed');
+      stdout.flush();
       
       print('\n🎉 Generation completed!');
       print('📋 Next steps:');
@@ -58,29 +103,291 @@ class FeatureGenerator {
     }
   }
 
-  /// Get a valid feature name with validation
-  Future<String?> _getValidFeatureName() async {
+  /// Get the models folder path, checking for existing 'models' folder first
+  String _getModelsFolderPath(String featureName) {
+    final dataPath = path.join(projectRoot, 'lib', 'features', featureName, 'data');
+    final modelsPath = path.join(dataPath, 'models');
+    final modelPath = path.join(dataPath, 'model');
+    
+    // Check if 'models' (plural) folder exists
+    if (Directory(modelsPath).existsSync()) {
+      print('🔍 Found existing "models" folder, using: $modelsPath');
+      return modelsPath;
+    }
+    
+    // Default to 'model' (singular)
+    return modelPath;
+  }
+
+  /// Get the model folder name for imports
+  String _getModelFolderName(String featureName) {
+    final dataPath = path.join(projectRoot, 'lib', 'features', featureName, 'data');
+    final modelsPath = path.join(dataPath, 'models');
+    
+    // Check if 'models' (plural) folder exists
+    if (Directory(modelsPath).existsSync()) {
+      return 'models';
+    }
+    
+    // Default to 'model' (singular)
+    return 'model';
+  }
+
+  /// Get the model folder name for creation (always prefer 'model' unless 'models' exists)
+  String _getModelFolderNameForCreation(String featureName) {
+    final dataPath = path.join(projectRoot, 'lib', 'features', featureName, 'data');
+    final modelsPath = path.join(dataPath, 'models');
+    
+    // Only use 'models' if it already exists
+    if (Directory(modelsPath).existsSync()) {
+      print('🔍 Using existing "models" folder');
+      return 'models';
+    }
+    
+    // Always create 'model' (singular) for new features
+    return 'model';
+  }
+
+  /// Show available endpoints in a clean format
+  Future<void> _showAvailableEndpoints() async {
+    final allEndpoints = getAvailableEndpoints();
+
+    print('🔍 Available API endpoints by category:');
+    print('=' * 50);
+
+    int index = 1;
+    for (final tagEntry in allEndpoints.entries) {
+      final tag = tagEntry.key;
+      final endpoints = tagEntry.value;
+
+      print('\n📁 $tag:');
+      for (final endpoint in endpoints) {
+        print('  $index. ${endpoint.method.toUpperCase()} ${endpoint.path}');
+        if (endpoint.summary.isNotEmpty) {
+          print('     📝 ${endpoint.summary}');
+        }
+        index++;
+      }
+    }
+    print('\n' + '=' * 50);
+  }
+
+  /// Run in non-interactive mode using command line arguments
+  Future<void> _runNonInteractiveMode(List<String> arguments) async {
+    if (arguments.length < 2) {
+      _printUsage();
+      return;
+    }
+
+    final featureName = arguments[0];
+    final endpointIndicesStr = arguments[1];
+
+    print('📝 Feature name: $featureName');
+    print('📝 Endpoint indices: $endpointIndicesStr');
+
+    // Validate feature name
+    if (!_isValidFeatureName(featureName)) {
+      print('❌ Invalid feature name: $featureName');
+      print('   Feature name should be in snake_case (e.g., user_management)');
+      return;
+    }
+
+    // Get all available endpoints first
+    final allEndpoints = getAvailableEndpoints();
+    final indexToEndpoint = <int, ApiEndpoint>{};
+    
+    int index = 1;
+    for (final tagEntry in allEndpoints.entries) {
+      final endpoints = tagEntry.value;
+      for (final endpoint in endpoints) {
+        indexToEndpoint[index] = endpoint;
+        index++;
+      }
+    }
+
+    // Parse endpoint indices
+    List<ApiEndpoint> selectedEndpoints = [];
+    if (endpointIndicesStr.toLowerCase() == 'all') {
+      selectedEndpoints.addAll(indexToEndpoint.values);
+    } else {
+      try {
+        final indices = endpointIndicesStr
+            .split(',')
+            .map((s) => int.parse(s.trim()))
+            .toList();
+            
+        for (final i in indices) {
+          if (indexToEndpoint.containsKey(i)) {
+            selectedEndpoints.add(indexToEndpoint[i]!);
+          } else {
+            print('⚠️ Warning: Invalid endpoint index $i (max: ${indexToEndpoint.length})');
+          }
+        }
+      } catch (e) {
+        print('❌ Invalid endpoint indices: $endpointIndicesStr');
+        print('   Use comma-separated numbers (e.g., 1,3,5) or "all"');
+        return;
+      }
+    }
+    
+    if (selectedEndpoints.isEmpty) {
+      print('❌ No valid endpoints found for indices: $endpointIndicesStr');
+      return;
+    }
+
+    print('\n✅ Selected ${selectedEndpoints.length} endpoints:');
+    for (final endpoint in selectedEndpoints) {
+      print('  • ${endpoint.method.toUpperCase()} ${endpoint.path}');
+    }
+
+    // Generate the feature
+    await generateFeature(featureName, selectedEndpoints);
+    
+    print('\n🎉 Generation completed!');
+    print('📋 Next steps:');
+    print('  1. Run "flutter packages pub run build_runner build" to generate .g.dart files');
+    print('  2. Add the repository to your DI container');
+    print('  3. Import and use the generated BLoC in your screens');
+  }
+
+  /// Print usage instructions
+  void _printUsage() {
+    print('📖 Usage:');
+    print('  Show endpoints:     dart bin/flutter_feature_generator.dart');
+    print('  Generate feature:   dart bin/flutter_feature_generator.dart <feature_name> <endpoint_indices>');
+    print('');
+    print('💡 Examples:');
+    print('  dart bin/flutter_feature_generator.dart user_management 1,3,5');
+    print('  dart bin/flutter_feature_generator.dart products all');
+    print('  dart bin/flutter_feature_generator.dart chat 15');
+    print('');
+    print('📋 Feature name should be in snake_case (e.g., user_management, products, etc.)');
+  }
+
+  /// Validate feature name format
+  bool _isValidFeatureName(String featureName) {
     final restrictedNames = ['test', 'build', 'lib', 'android', 'ios', 'web', 'windows', 'linux', 'macos'];
     
+    if (restrictedNames.contains(featureName.toLowerCase())) {
+      return false;
+    }
+    
+    return RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(featureName);
+  }
+
+  /// Get a valid feature name with validation
+  Future<String?> _getValidFeatureName() async {
+    print('🔍 DEBUG: Entered _getValidFeatureName() method');
+    stdout.flush();
+    
+    final restrictedNames = ['test', 'build', 'lib', 'android', 'ios', 'web', 'windows', 'linux', 'macos'];
+    
+    print('🔍 DEBUG: About to add delay...');
+    stdout.flush();
+    
+    // Add a small delay to ensure previous output is processed
+    await Future.delayed(Duration(milliseconds: 100));
+    
+    print('🔍 DEBUG: Delay completed, entering while loop...');
+    stdout.flush();
+    
     while (true) {
+      print('🔍 DEBUG: Inside while loop, about to print prompt...');
+      stdout.flush();
+      
       print('\n📝 Enter the feature name (e.g., user_management, products, etc.):');
-      final featureName = stdin.readLineSync()?.trim();
+      stdout.flush();
+      
+      print('🔍 DEBUG: Prompt printed, about to call readLineSync...');
+      stdout.flush();
+      
+      String? featureName;
+      
+      // Windows PowerShell fix: Add a small delay and try multiple times
+      for (int attempt = 1; attempt <= 3; attempt++) {
+        print('🔍 DEBUG: Input attempt $attempt...');
+        stdout.flush();
+        
+        featureName = stdin.readLineSync()?.trim();
+        
+        if (featureName != null && featureName.isNotEmpty) {
+          break; // Got valid input
+        }
+        
+        print('🔍 DEBUG: Attempt $attempt returned null/empty, trying again...');
+        await Future.delayed(Duration(milliseconds: 500)); // Short delay
+      }
+      
+      // If still null after 3 attempts, try byte reading as fallback
+      if (featureName == null || featureName.isEmpty) {
+        print('🔍 DEBUG: All attempts failed, trying byte-by-byte reading...');
+        stdout.flush();
+        
+        final buffer = <int>[];
+        try {
+          int consecutiveNewlines = 0;
+          while (consecutiveNewlines < 2) { // Stop after 2 consecutive newlines
+            final byte = stdin.readByteSync();
+            if (byte == 10 || byte == 13) { // newline or carriage return
+              consecutiveNewlines++;
+              if (buffer.isNotEmpty) break; // Got some input, stop here
+              continue;
+            }
+            consecutiveNewlines = 0;
+            if (byte >= 32 && byte <= 126) { // Printable ASCII characters only
+              buffer.add(byte);
+            }
+          }
+          if (buffer.isNotEmpty) {
+            featureName = String.fromCharCodes(buffer).trim();
+          }
+        } catch (e) {
+          print('🔍 DEBUG: Byte reading failed: $e');
+          // Last resort: ask user to restart script
+          print('❌ Input system not working properly. Please restart the script.');
+          return null;
+        }
+      }
+      
+      print('🔍 DEBUG: readLineSync completed');
+      stdout.flush();
+      
+      print('📝 Received feature name: "$featureName"');
+      stdout.flush();
+      
+      print('🔍 DEBUG: Checking if featureName is null or empty...');
+      stdout.flush();
       
       if (featureName == null || featureName.isEmpty) {
         print('❌ Feature name is required');
+        print('🔍 DEBUG: Feature name was null/empty, continuing loop...');
+        stdout.flush();
         continue;
       }
+      
+      print('🔍 DEBUG: Validating feature name against restricted names...');
+      stdout.flush();
       
       // Validate feature name
       if (restrictedNames.contains(featureName.toLowerCase())) {
         print('❌ "$featureName" is a restricted name. Please choose a different name.');
+        print('🔍 DEBUG: Feature name was restricted, continuing loop...');
+        stdout.flush();
         continue;
       }
       
+      print('🔍 DEBUG: Checking regex pattern...');
+      stdout.flush();
+      
       if (!RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(featureName)) {
         print('❌ Feature name should be in snake_case (e.g., user_management)');
+        print('🔍 DEBUG: Feature name failed regex, continuing loop...');
+        stdout.flush();
         continue;
       }
+      
+      print('🔍 DEBUG: Feature name validation passed, returning: "$featureName"');
+      stdout.flush();
       
       return featureName;
     }
@@ -164,7 +471,13 @@ class FeatureGenerator {
     print('Enter the numbers of endpoints you want to generate (comma-separated):');
     print('Example: 1,3,5 or "all" for all endpoints');
     
+    // Flush output to ensure prompt is displayed
+    stdout.flush();
+    
     final input = stdin.readLineSync()?.trim();
+    
+    // Debug: Print what was received
+    print('📝 Received input: "$input"');
     
     if (input == null || input.isEmpty) {
       print('❌ No selection made');
@@ -194,6 +507,9 @@ class FeatureGenerator {
       print('  • ${endpoint.method.toUpperCase()} ${endpoint.path}');
     }
 
+    // Clear any remaining input buffer
+    stdout.flush();
+    
     return selectedEndpoints;
   }
 
@@ -209,7 +525,9 @@ class FeatureGenerator {
       print('  2. Overwrite entire feature');
       print('  3. Cancel generation');
       
+      stdout.flush();
       final choice = stdin.readLineSync()?.trim();
+      print('📝 Received choice: "$choice"');
       
       switch (choice) {
         case '1':
@@ -295,8 +613,11 @@ class FeatureGenerator {
   Future<void> _createFolderStructure(String featureName) async {
     final basePath = path.join(projectRoot, 'lib', 'features', featureName);
     
+    // Determine which model folder to use
+    final modelFolderName = _getModelFolderNameForCreation(featureName);
+    
     final folders = [
-      '$basePath/data/model',
+      '$basePath/data/$modelFolderName',
       '$basePath/data/remote/service',
       '$basePath/data/remote/source',
       '$basePath/data/repository',
@@ -456,7 +777,7 @@ class FeatureGenerator {
 
   // Template generation methods
   Future<void> _generateModels(String featureName, List<ApiEndpoint> endpoints) async {
-    final modelsPath = path.join(projectRoot, 'lib', 'features', featureName, 'data', 'model');
+    final modelsPath = _getModelsFolderPath(featureName);
     final generatedModels = <String>{};
 
     for (final endpoint in endpoints) {
@@ -640,7 +961,7 @@ class FeatureGenerator {
 
   /// Append new models only
   Future<void> _appendModels(String featureName, List<ApiEndpoint> endpoints) async {
-    final modelsPath = path.join(projectRoot, 'lib', 'features', featureName, 'data', 'model');
+    final modelsPath = _getModelsFolderPath(featureName);
     final generatedModels = <String>{};
 
     for (final endpoint in endpoints) {
@@ -697,14 +1018,28 @@ class FeatureGenerator {
     // Generate new methods
     for (final endpoint in endpoints) {
       final models = _getRequiredModels(endpoint, featureName);
+      final modelFolderName = _getModelFolderName(featureName);
       for (final model in models) {
-        newImports.add('package:creamati_mobile/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
+        newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(model)}.dart');
       }
       newMethods.add(_generateServiceMethod(endpoint, featureName));
     }
     
-    // Add new imports
+    // Update existing imports if model folder name changed
     String updatedContent = existingContent;
+    final modelFolderName = _getModelFolderName(featureName);
+    
+    // Fix existing imports to use correct model folder name
+    final correctFolderName = modelFolderName == 'models' ? 'model' : 'models';
+    final incorrectPattern = "package:creamati_mobile/features/$featureName/data/$correctFolderName/";
+    final correctPattern = "package:creamati_mobile/features/$featureName/data/$modelFolderName/";
+    
+    if (updatedContent.contains(incorrectPattern)) {
+      print('🔄 Updating imports to use "$modelFolderName" folder...');
+      updatedContent = updatedContent.replaceAll(incorrectPattern, correctPattern);
+    }
+
+    // Add new imports
     final lastImportIndex = updatedContent.lastIndexOf("import '");
     if (lastImportIndex != -1) {
       final nextLineIndex = updatedContent.indexOf('\n', lastImportIndex);

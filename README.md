@@ -25,7 +25,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dev_dependencies:
-  flutter_feature_generator: ^1.0.5
+  flutter_feature_generator: ^1.0.7
 ```
 
 Then run:
