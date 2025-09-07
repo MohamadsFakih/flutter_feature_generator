@@ -3,7 +3,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:flutter_feature_generator/flutter_feature_generator.dart';
-import 'package:flutter_feature_generator/src/web_server.dart';
 
 void main(List<String> arguments) async {
   // Auto-detect project root

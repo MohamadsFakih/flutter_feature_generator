@@ -123,7 +123,6 @@ ${stateFields.map((field) => '    $field,').join('\n')}
     final eventParams = _generateEventMethodParams(endpoint, featureName);
     final useCaseCall = _generateUseCaseCall(endpoint, featureName);
     final stateFieldName = _generateStateFieldName(endpoint);
-    final responseType = _generateReturnType(endpoint, featureName);
     
     return '''  Future $methodName($eventParams, Emitter<${_toPascalCase(featureName)}State> emit) async {
     emit(state.copyWith(isLoading: true, error: const Error.none()));

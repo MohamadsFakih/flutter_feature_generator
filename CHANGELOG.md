@@ -5,7 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2024-12-07
+## [2.0.2]
+
+### 🧹 Code Quality Improvements
+- Removed dead code in feature_generator.dart that was unreachable after return statement
+- Cleaned up unused imports (shelf_static in web_server.dart, direct web_server import in main)
+- Removed unused shelf_static dependency from pubspec.yaml
+
+## [2.0.1]
+
+### 🐛 Bug Fixes
+- Updated documentation with proper image handling instructions for pub.dev
+
+## [2.0.0]
 
 ### 🎉 Major Features Added
 - **Interactive Web Interface**: Beautiful, modern web UI for API selection and feature generation
@@ -73,8 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minimum Dart SDK version remains 3.0.0
 - Generated code structure remains the same, but appending logic is significantly improved
 
-## [1.0.7] - 2024-01-XX
-
+## [1.0.7]
 ### Added
 - Improved error handling for Windows PowerShell input issues
 - Better debug output for troubleshooting input problems
@@ -85,7 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Input buffer clearing problems
 - Improved cross-platform input handling
 
-## [1.0.0] - 2024-01-XX
+## [1.0.0]
 
 ### Added
 - Initial release of Flutter Feature Generator

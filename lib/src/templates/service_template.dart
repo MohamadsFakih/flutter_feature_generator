@@ -14,7 +14,6 @@ class ServiceTemplate {
 
     // Generate model imports
     for (final endpoint in endpoints) {
-      final methodName = _generateMethodName(endpoint);
       final models = _getRequiredModels(endpoint, featureName);
       
       for (final model in models) {

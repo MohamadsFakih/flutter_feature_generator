@@ -2,7 +2,7 @@
 
 A powerful code generator with **interactive web interface** for creating clean architecture features in Flutter projects from OpenAPI/Swagger specifications.
 
-![Web Interface](assets/images/web_interface_screenshot.png)
+![Web Interface](https://raw.githubusercontent.com/MohamadsFakih/flutter_feature_generator/master/assets/images/web_interface_screenshot.png)
 
 ## ✨ What's New in v2.0.0
 
@@ -344,20 +344,36 @@ To publish this package to pub.dev instead of onepub:
    # The publish_to line has been commented out in pubspec.yaml
    ```
 
-2. **Login to pub.dev**:
+2. **Commit and push changes to GitHub**:
+   ```bash
+   git add .
+   git commit -m "v2.0.0: Add web interface and core improvements"
+   git push origin master
+   ```
+   *Note: Images must be pushed to GitHub first for pub.dev to display them*
+
+3. **Login to pub.dev**:
    ```bash
    dart pub login
    ```
 
-3. **Dry run**:
+4. **Dry run**:
    ```bash
    dart pub publish --dry-run
    ```
 
-4. **Publish**:
+5. **Publish**:
    ```bash
    dart pub publish
    ```
+
+### 📸 Image Display Note
+
+For images to show on **both GitHub and pub.dev**:
+- Local paths work on GitHub: `![Image](assets/images/screenshot.png)`
+- Absolute URLs work on pub.dev: `![Image](https://raw.githubusercontent.com/user/repo/branch/assets/images/screenshot.png)`
+
+This README uses absolute GitHub URLs so images display properly on pub.dev.
 
 ## Contributing
 

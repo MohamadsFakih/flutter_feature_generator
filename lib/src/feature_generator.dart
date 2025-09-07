@@ -52,51 +52,6 @@ class FeatureGenerator {
       
       return; // Exit here instead of hanging
 
-      print('🔍 DEBUG: Loaded swagger..');
-      stdout.flush();
-      
-      // Select endpoints interactively
-      print('🔍 DEBUG: Starting endpoint selection...');
-      stdout.flush();
-      final selectedEndpoints = await selectEndpointsInteractively();
-      
-      print('🔍 DEBUG: Endpoint selection completed. Count: ${selectedEndpoints.length}');
-      stdout.flush();
-      
-      if (selectedEndpoints.isEmpty) {
-        print('❌ No endpoints selected. Exiting.');
-        return;
-      }
-
-      print('🔍 DEBUG: About to call _getValidFeatureName()...');
-      stdout.flush();
-
-      // Get feature name with validation
-      final featureName = await _getValidFeatureName();
-      
-      print('🔍 DEBUG: _getValidFeatureName() returned: "$featureName"');
-      stdout.flush();
-      
-      if (featureName == null) {
-        print('❌ Feature name is required');
-        return;
-      }
-
-      print('🔍 DEBUG: About to call generateFeature()...');
-      stdout.flush();
-
-      // Generate the feature
-      await generateFeature(featureName, selectedEndpoints);
-      
-      print('🔍 DEBUG: generateFeature() completed');
-      stdout.flush();
-      
-      print('\n🎉 Generation completed!');
-      print('📋 Next steps:');
-      print('  1. Run "flutter packages pub run build_runner build" to generate .g.dart files');
-      print('  2. Add the repository to your DI container');
-      print('  3. Import and use the generated BLoC in your screens');
-
     } catch (e) {
       print('❌ Error: $e');
       exit(1);
