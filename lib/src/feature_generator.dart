@@ -403,6 +403,58 @@ class FeatureGenerator {
     final content = await swaggerFile.readAsString();
     swaggerSpec = json.decode(content);
     print('✅ Swagger specification loaded successfully');
+    
+    // Ensure core error class exists
+    await _ensureErrorClassExists();
+  }
+
+  /// Ensure the core Error class exists in the project
+  Future<void> _ensureErrorClassExists() async {
+    final errorPath = path.join(projectRoot, 'lib', 'core', 'error', 'error.dart');
+    final errorFile = File(errorPath);
+    
+    if (!await errorFile.exists()) {
+      print('📝 Creating core Error class...');
+      
+      // Create core/error directory if it doesn't exist
+      await Directory(path.dirname(errorPath)).create(recursive: true);
+      
+      // Generate the error class
+      final errorContent = '''import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'error.freezed.dart';
+
+@freezed
+class Error with _\$Error {
+  const factory Error.httpInternalServerError(String errorBody) =
+      HttpInternalServerError;
+
+  const factory Error.httpUnAuthorizedError() = HttpUnAuthorizedError;
+
+  const factory Error.httpUnknownError(String message) = HttpUnknownError;
+
+  const factory Error.firebaseAuthError(String message) = FirebaseAuthError;
+
+  const factory Error.auth0AuthError(String message) = Auth0AuthError;
+
+  const factory Error.customErrorType(String message) = CustomErrorType;
+
+  const factory Error.fileNotFoundError(String filePath) = FileNotFoundError;
+  
+  const factory Error.decryptionFailed(String message) = DecryptionFailedError;
+  
+  const factory Error.fileAlreadyExists(String filePath) =
+      FileAlreadyExistsError;
+  
+  const factory Error.none() = NoError;
+}
+''';
+      
+      await errorFile.writeAsString(errorContent);
+      print('✅ Core Error class created at lib/core/error/error.dart');
+    } else {
+      print('✅ Core Error class already exists');
+    }
   }
 
   /// Get all available API endpoints grouped by tags

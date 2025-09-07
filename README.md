@@ -167,6 +167,60 @@ When you add new APIs to an existing feature, the generator intelligently:
 - A `swagger.json` or OpenAPI specification file in your project root
 - Flutter project with standard structure
 
+### Required Dependencies
+
+The generated code uses several packages that must be added to your Flutter project:
+
+```yaml
+dependencies:
+  # Error handling with functional programming
+  dartz: ^0.10.1
+  
+  # Dependency injection
+  injectable: ^2.3.2
+  get_it: ^7.6.4
+  
+  # Code generation for models and state management
+  freezed_annotation: ^2.4.1
+  json_annotation: ^4.8.1
+  
+  # HTTP client for API calls
+  retrofit: ^4.0.3
+  dio: ^5.3.2
+
+dev_dependencies:
+  # Code generation tools
+  build_runner: ^2.4.7
+  freezed: ^2.4.6
+  json_serializable: ^6.7.1
+  retrofit_generator: ^8.0.4
+  injectable_generator: ^2.4.1
+```
+
+#### Package Explanations:
+
+- **🎯 dartz**: Provides `Either<Error, T>` for functional error handling in use cases and repositories
+- **💉 injectable & get_it**: Dependency injection for clean architecture - register your repositories and use cases
+- **🧊 freezed**: Generates immutable classes for models, events, and states with unions and pattern matching
+- **🌐 retrofit & dio**: HTTP client generation from your service interfaces - handles API calls automatically
+- **🔧 json_annotation & json_serializable**: Generates `fromJson` and `toJson` methods for your models
+- **⚙️ build_runner**: Runs code generation for all the above packages
+
+### Quick Setup
+
+Add the dependencies to your `pubspec.yaml`, then run:
+
+```bash
+# Install dependencies
+flutter pub get
+
+# Generate code (run this after generating features)
+dart run build_runner build
+
+# For development (watches for changes)
+dart run build_runner watch
+```
+
 ## Configuration
 
 ### Swagger/OpenAPI File
@@ -221,14 +275,38 @@ Feature names must follow snake_case format (e.g., `user_management`, `chat_syst
 
 After generation, complete the integration:
 
-1. **Generate build files**:
+1. **Add required dependencies** (see Requirements section above)
+
+2. **Generate build files**:
    ```bash
    dart run build_runner build
    ```
+   This generates:
+   - `.freezed.dart` files for models, events, and states
+   - `.g.dart` files for JSON serialization
+   - `.config.dart` files for dependency injection
 
-2. **Add to dependency injection**: Register repository and BLoC in your DI container
+3. **Configure dependency injection** in your `main.dart`:
+   ```dart
+   @InjectableInit()
+   void configureDependencies() => GetIt.instance.init();
+   
+   void main() {
+     configureDependencies();
+     runApp(MyApp());
+   }
+   ```
 
-3. **Use in your app**: Import and use the generated components
+4. **Register your repositories** in a DI module:
+   ```dart
+   @module
+   abstract class AppModule {
+     @injectable
+     UserManagementRepository userRepo(UserManagementRepositoryImpl impl) => impl;
+   }
+   ```
+
+5. **Use in your app**: Import and use the generated components
 
 Example BLoC usage:
 ```dart
@@ -239,6 +317,23 @@ BlocProvider(
   child: UserManagementScreen(),
 )
 ```
+
+### 🎯 Auto-Generated Core Files
+
+The generator automatically creates these core files if they don't exist:
+
+- `lib/core/error/error.dart`: Functional error handling with freezed unions
+  ```dart
+  // Usage in your code
+  result.fold(
+    (error) => error.when(
+      httpUnAuthorizedError: () => handleUnauthorized(),
+      httpUnknownError: (message) => showError(message),
+      // ... other error cases
+    ),
+    (data) => handleSuccess(data),
+  );
+  ```
 
 ## Publishing to pub.dev
 

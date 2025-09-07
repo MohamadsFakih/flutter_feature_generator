@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Granular Layer Control**: Choose specific layers to generate (Data, Domain, Presentation)
 - **Presentation Component Selection**: Fine-grained control over BLoC, Screens, and Widgets
 - **Smart Appending**: Automatically appends to existing classes instead of overwriting
+- **Auto-Generated Core Files**: Automatically creates `core/error/error.dart` if missing
 - **Real-time Search**: Filter APIs by path, method, tag, or description
 - **Multi-Selection Interface**: Visual selection of multiple endpoints with feedback
 
@@ -55,9 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 📦 Technical Improvements
 - Added `shelf`, `shelf_router`, and `shelf_static` dependencies for web server
+- Auto-generation of core Error class with freezed unions for functional error handling
 - Improved error handling and user feedback
 - Better code organization with separation of concerns
 - Enhanced CLI backward compatibility
+- Comprehensive documentation of required dependencies
 
 ### 🐛 Bug Fixes
 - Fixed Windows PowerShell input issues by providing web interface alternative
