@@ -1,13 +1,13 @@
 class ScreenTemplate {
-  static String generateScreen(String featureName) {
+  static String generateScreen(String featureName, String projectName) {
     final className = '${_toPascalCase(featureName)}Screen';
     final blocClassName = '${_toPascalCase(featureName)}Bloc';
     
     return '''
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:creamati_mobile/di/di_container.dart';
-import 'package:creamati_mobile/features/$featureName/presentation/bloc/${featureName}_bloc.dart';
+import 'package:$projectName/di/di_container.dart';
+import 'package:$projectName/features/$featureName/presentation/bloc/${featureName}_bloc.dart';
 
 class $className extends StatelessWidget {
   const $className({super.key});

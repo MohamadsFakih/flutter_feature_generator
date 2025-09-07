@@ -1,7 +1,7 @@
 import 'shared.dart';
 
 class SourceTemplate {
-  static String generateSourceInterface(String featureName, List<ApiEndpoint> endpoints) {
+  static String generateSourceInterface(String featureName, List<ApiEndpoint> endpoints, String projectName) {
     final className = '${_toPascalCase(featureName)}RemoteDataSource';
     final methods = <String>[];
     final imports = <String>{};
@@ -10,7 +10,7 @@ class SourceTemplate {
     for (final endpoint in endpoints) {
       final models = _getRequiredModels(endpoint, featureName);
       for (final model in models) {
-        imports.add('package:creamati_mobile/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
+        imports.add('package:$projectName/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
       }
     }
 
@@ -30,14 +30,14 @@ ${methods.join('\n\n')}
 ''';
   }
 
-  static String generateSourceImplementation(String featureName, List<ApiEndpoint> endpoints) {
+  static String generateSourceImplementation(String featureName, List<ApiEndpoint> endpoints, String projectName) {
     final className = '${_toPascalCase(featureName)}RemoteDataSource';
     final implClassName = '${className}Impl';
     final serviceClassName = '${_toPascalCase(featureName)}RemoteService';
     final methods = <String>[];
     final imports = <String>{
-      'package:creamati_mobile/features/$featureName/data/remote/service/${featureName}_service.dart',
-      'package:creamati_mobile/features/$featureName/data/remote/source/${featureName}_source.dart',
+      'package:$projectName/features/$featureName/data/remote/service/${featureName}_service.dart',
+      'package:$projectName/features/$featureName/data/remote/source/${featureName}_source.dart',
       'package:injectable/injectable.dart',
     };
 
@@ -45,7 +45,7 @@ ${methods.join('\n\n')}
     for (final endpoint in endpoints) {
       final models = _getRequiredModels(endpoint, featureName);
       for (final model in models) {
-        imports.add('package:creamati_mobile/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
+        imports.add('package:$projectName/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
       }
     }
 

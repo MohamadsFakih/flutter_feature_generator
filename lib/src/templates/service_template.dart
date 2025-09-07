@@ -1,12 +1,10 @@
 import 'shared.dart';
 
 class ServiceTemplate {
-  static String generateService(String featureName, List<ApiEndpoint> endpoints) {
+  static String generateService(String featureName, List<ApiEndpoint> endpoints, String projectName) {
     final className = '${_toPascalCase(featureName)}RemoteService';
     final methods = <String>[];
     final imports = <String>{
-      'package:creamati_mobile/core/utils/api_constant.dart',
-      'package:creamati_mobile/di/interceptors.dart',
       'package:dio/dio.dart',
       'package:injectable/injectable.dart',
       'package:retrofit/retrofit.dart',
@@ -17,7 +15,7 @@ class ServiceTemplate {
       final models = _getRequiredModels(endpoint, featureName);
       
       for (final model in models) {
-        imports.add('package:creamati_mobile/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
+        imports.add('package:$projectName/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
       }
     }
 

@@ -1,22 +1,22 @@
 import 'shared.dart';
 
 class UseCaseTemplate {
-  static String generateUseCases(String featureName, List<ApiEndpoint> endpoints) {
+  static String generateUseCases(String featureName, List<ApiEndpoint> endpoints, String projectName) {
     final className = '${_toPascalCase(featureName)}UseCases';
     final repositoryClassName = '${_toPascalCase(featureName)}Repository';
     final methods = <String>[];
     final imports = <String>{
-      'package:creamati_mobile/features/$featureName/domain/repository/${featureName}_repository.dart',
+      'package:$projectName/features/$featureName/domain/repository/${featureName}_repository.dart',
       'package:dartz/dartz.dart',
       'package:injectable/injectable.dart',
-      'package:creamati_mobile/core/error/error.dart',
+      'package:$projectName/core/error/error.dart',
     };
 
     // Generate model imports
     for (final endpoint in endpoints) {
       final models = _getRequiredModels(endpoint, featureName);
       for (final model in models) {
-        imports.add('package:creamati_mobile/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
+        imports.add('package:$projectName/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
       }
     }
 

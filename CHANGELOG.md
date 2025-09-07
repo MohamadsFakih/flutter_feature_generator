@@ -5,16 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.3]
+
+### Critical Bug Fixes
+- **BREAKING FIX**: Resolved hardcoded package name in all generated imports
+- All generated code now uses the correct project package name instead of hardcoded references
+- Fixed imports in data layer, domain layer, presentation layer, and error handling classes
+
 ## [2.0.2]
 
-### 🧹 Code Quality Improvements
+### Code Quality Improvements
 - Removed dead code in feature_generator.dart that was unreachable after return statement
 - Cleaned up unused imports (shelf_static in web_server.dart, direct web_server import in main)
 - Removed unused shelf_static dependency from pubspec.yaml
 
 ## [2.0.1]
 
-### 🐛 Bug Fixes
+### Bug Fixes
 - Updated documentation with proper image handling instructions for pub.dev
 
 ## [2.0.0]
@@ -67,7 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clear error messages with helpful guidance
 
 ### 📦 Technical Improvements
-- Added `shelf`, `shelf_router`, and `shelf_static` dependencies for web server
 - Auto-generation of core Error class with freezed unions for functional error handling
 - Improved error handling and user feedback
 - Better code organization with separation of concerns
@@ -75,7 +81,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive documentation of required dependencies
 
 ### 🐛 Bug Fixes
-- Fixed Windows PowerShell input issues by providing web interface alternative
 - Improved file path handling across different operating systems
 - Better error messages for invalid feature names and selections
 - Fixed duplicate endpoint detection logic

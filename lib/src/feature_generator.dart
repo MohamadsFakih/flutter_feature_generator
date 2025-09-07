@@ -15,6 +15,7 @@ import 'templates/screen_template.dart';
 class FeatureGenerator {
   late Map<String, dynamic> swaggerSpec;
   final String projectRoot;
+  late String projectName;
 
   FeatureGenerator(this.projectRoot);
 
@@ -34,7 +35,6 @@ class FeatureGenerator {
       }
 
       // Use hybrid mode: show options first, then guide user to use command line
-      print('\n💡 Due to Windows PowerShell input issues, this script works best with command-line arguments.');
       print('📋 Here are your options:');
       print('');
       
@@ -350,6 +350,9 @@ class FeatureGenerator {
 
   /// Load and parse the swagger.json file
   Future<void> loadSwaggerSpec() async {
+    // First, detect the project name
+    await _detectProjectName();
+    
     final swaggerFile = File(path.join(projectRoot, 'swagger.json'));
     if (!await swaggerFile.exists()) {
       throw Exception('swagger.json not found in project root');
@@ -361,6 +364,27 @@ class FeatureGenerator {
     
     // Ensure core error class exists
     await _ensureErrorClassExists();
+  }
+
+  /// Detect the project name from pubspec.yaml
+  Future<void> _detectProjectName() async {
+    final pubspecFile = File(path.join(projectRoot, 'pubspec.yaml'));
+    if (!await pubspecFile.exists()) {
+      throw Exception('pubspec.yaml not found in project root. Make sure you\'re running this from a Flutter project directory.');
+    }
+    
+    final content = await pubspecFile.readAsString();
+    final lines = content.split('\n');
+    
+    for (final line in lines) {
+      if (line.trim().startsWith('name:')) {
+        projectName = line.split(':')[1].trim();
+        print('📦 Detected project name: $projectName');
+        return;
+      }
+    }
+    
+    throw Exception('Could not find project name in pubspec.yaml');
   }
 
   /// Ensure the core Error class exists in the project
@@ -1021,7 +1045,7 @@ class Error with _\$Error {
 
   Future<void> _generateService(String featureName, List<ApiEndpoint> endpoints) async {
     final servicePath = path.join(projectRoot, 'lib', 'features', featureName, 'data', 'remote', 'service');
-    final content = ServiceTemplate.generateService(featureName, endpoints);
+    final content = ServiceTemplate.generateService(featureName, endpoints, projectName);
     await File(path.join(servicePath, '${featureName}_service.dart')).writeAsString(content);
   }
 
@@ -1029,29 +1053,29 @@ class Error with _\$Error {
     final sourcePath = path.join(projectRoot, 'lib', 'features', featureName, 'data', 'remote', 'source');
     
     // Generate source interface
-    final sourceInterface = SourceTemplate.generateSourceInterface(featureName, endpoints);
+    final sourceInterface = SourceTemplate.generateSourceInterface(featureName, endpoints, projectName);
     await File(path.join(sourcePath, '${featureName}_source.dart')).writeAsString(sourceInterface);
     
     // Generate source implementation
-    final sourceImpl = SourceTemplate.generateSourceImplementation(featureName, endpoints);
+    final sourceImpl = SourceTemplate.generateSourceImplementation(featureName, endpoints, projectName);
     await File(path.join(sourcePath, '${featureName}_source_impl.dart')).writeAsString(sourceImpl);
   }
 
   Future<void> _generateRepositoryImpl(String featureName, List<ApiEndpoint> endpoints) async {
     final repositoryPath = path.join(projectRoot, 'lib', 'features', featureName, 'data', 'repository');
-    final content = RepositoryTemplate.generateRepositoryImplementation(featureName, endpoints);
+    final content = RepositoryTemplate.generateRepositoryImplementation(featureName, endpoints, projectName);
     await File(path.join(repositoryPath, '${featureName}_repository_impl.dart')).writeAsString(content);
   }
 
   Future<void> _generateRepositoryInterface(String featureName, List<ApiEndpoint> endpoints) async {
     final repositoryPath = path.join(projectRoot, 'lib', 'features', featureName, 'domain', 'repository');
-    final content = RepositoryTemplate.generateRepositoryInterface(featureName, endpoints);
+    final content = RepositoryTemplate.generateRepositoryInterface(featureName, endpoints, projectName);
     await File(path.join(repositoryPath, '${featureName}_repository.dart')).writeAsString(content);
   }
 
   Future<void> _generateUseCases(String featureName, List<ApiEndpoint> endpoints) async {
     final useCasePath = path.join(projectRoot, 'lib', 'features', featureName, 'domain', 'usecase');
-    final content = UseCaseTemplate.generateUseCases(featureName, endpoints);
+    final content = UseCaseTemplate.generateUseCases(featureName, endpoints, projectName);
     await File(path.join(useCasePath, '${featureName}_usecase.dart')).writeAsString(content);
   }
 
@@ -1059,21 +1083,21 @@ class Error with _\$Error {
     final blocPath = path.join(projectRoot, 'lib', 'features', featureName, 'presentation', 'bloc');
     
     // Generate bloc
-    final blocContent = BlocTemplate.generateBloc(featureName, endpoints);
+    final blocContent = BlocTemplate.generateBloc(featureName, endpoints, projectName);
     await File(path.join(blocPath, '${featureName}_bloc.dart')).writeAsString(blocContent);
     
     // Generate event
-    final eventContent = BlocTemplate.generateEvent(featureName, endpoints);
+    final eventContent = BlocTemplate.generateEvent(featureName, endpoints, projectName);
     await File(path.join(blocPath, '${featureName}_event.dart')).writeAsString(eventContent);
     
     // Generate state
-    final stateContent = BlocTemplate.generateState(featureName, endpoints);
+    final stateContent = BlocTemplate.generateState(featureName, endpoints, projectName);
     await File(path.join(blocPath, '${featureName}_state.dart')).writeAsString(stateContent);
   }
 
   Future<void> _generateScreen(String featureName) async {
     final screenPath = path.join(projectRoot, 'lib', 'features', featureName, 'presentation', 'screen');
-    final content = ScreenTemplate.generateScreen(featureName);
+    final content = ScreenTemplate.generateScreen(featureName, projectName);
     await File(path.join(screenPath, '${featureName}_screen.dart')).writeAsString(content);
   }
 
@@ -1233,7 +1257,7 @@ class Error with _\$Error {
       final models = _getRequiredModels(endpoint, featureName);
       final modelFolderName = _getModelFolderName(featureName);
       for (final model in models) {
-        newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(model)}.dart');
+        newImports.add('package:$projectName/features/$featureName/data/$modelFolderName/${_toSnakeCase(model)}.dart');
       }
       newMethods.add(_generateServiceMethod(endpoint, featureName));
     }
@@ -1244,8 +1268,8 @@ class Error with _\$Error {
     
     // Fix existing imports to use correct model folder name
     final correctFolderName = modelFolderName == 'models' ? 'model' : 'models';
-    final incorrectPattern = "package:creamati_mobile/features/$featureName/data/$correctFolderName/";
-    final correctPattern = "package:creamati_mobile/features/$featureName/data/$modelFolderName/";
+    final incorrectPattern = "package:$projectName/features/$featureName/data/$correctFolderName/";
+    final correctPattern = "package:$projectName/features/$featureName/data/$modelFolderName/";
     
     if (updatedContent.contains(incorrectPattern)) {
       print('🔄 Updating imports to use "$modelFolderName" folder...');
@@ -1382,7 +1406,7 @@ class Error with _\$Error {
     
     if (!await sourceFile.exists()) {
       // If source interface doesn't exist, generate it normally
-      final sourceInterface = SourceTemplate.generateSourceInterface(featureName, endpoints);
+      final sourceInterface = SourceTemplate.generateSourceInterface(featureName, endpoints, projectName);
       await sourceFile.writeAsString(sourceInterface);
       return;
     }
@@ -1403,7 +1427,7 @@ class Error with _\$Error {
         // Add import for return type if needed
         if (returnType != 'dynamic') {
           final modelFolderName = _getModelFolderName(featureName);
-          newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
+          newImports.add('package:$projectName/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
         }
         
         newMethods.add('  Future<$returnType> $methodName($parameters);');
@@ -1450,7 +1474,7 @@ class Error with _\$Error {
     
     if (!await sourceFile.exists()) {
       // If source implementation doesn't exist, generate it normally
-      final sourceImpl = SourceTemplate.generateSourceImplementation(featureName, endpoints);
+      final sourceImpl = SourceTemplate.generateSourceImplementation(featureName, endpoints, projectName);
       await sourceFile.writeAsString(sourceImpl);
       return;
     }
@@ -1471,7 +1495,7 @@ class Error with _\$Error {
         // Add import for return type if needed
         if (returnType != 'dynamic') {
           final modelFolderName = _getModelFolderName(featureName);
-          newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
+          newImports.add('package:$projectName/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
         }
         
         newMethods.add('''  @override
@@ -1547,7 +1571,7 @@ class Error with _\$Error {
         // Add import for return type if needed
         if (returnType != 'dynamic') {
           final modelFolderName = _getModelFolderName(featureName);
-          newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
+          newImports.add('package:$projectName/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
         }
         
         newMethods.add('  Future<$returnType> $methodName($parameters);');
@@ -1614,7 +1638,7 @@ class Error with _\$Error {
         // Add import for return type if needed
         if (returnType != 'dynamic') {
           final modelFolderName = _getModelFolderName(featureName);
-          newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
+          newImports.add('package:$projectName/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
         }
         
         newMethods.add('''  @override
@@ -1710,7 +1734,7 @@ class Error with _\$Error {
         // Add import for return type if needed
         if (returnType != 'dynamic') {
           final modelFolderName = _getModelFolderName(featureName);
-          newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
+          newImports.add('package:$projectName/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
         }
         
         // Generate the method based on the pattern (with Either<Error, T> or direct Future<T>)
@@ -1792,7 +1816,7 @@ class Error with _\$Error {
     
     if (!await eventFile.exists()) {
       // If event file doesn't exist, generate it normally
-      final eventContent = BlocTemplate.generateEvent(featureName, endpoints);
+      final eventContent = BlocTemplate.generateEvent(featureName, endpoints, projectName);
       await eventFile.writeAsString(eventContent);
       return;
     }
@@ -1866,7 +1890,7 @@ class Error with _\$Error {
     
     if (!await stateFile.exists()) {
       // If state file doesn't exist, generate it normally
-      final stateContent = BlocTemplate.generateState(featureName, endpoints);
+      final stateContent = BlocTemplate.generateState(featureName, endpoints, projectName);
       await stateFile.writeAsString(stateContent);
       return;
     }
@@ -1961,7 +1985,7 @@ class Error with _\$Error {
     
     if (!await blocFile.exists()) {
       // If bloc file doesn't exist, generate it normally
-      final blocContent = BlocTemplate.generateBloc(featureName, endpoints);
+      final blocContent = BlocTemplate.generateBloc(featureName, endpoints, projectName);
       await blocFile.writeAsString(blocContent);
       return;
     }
@@ -1983,7 +2007,7 @@ class Error with _\$Error {
         // Add import for model if needed
         final responseModelName = _generateResponseModelName(endpoint, featureName);
         final modelFolderName = _getModelFolderName(featureName);
-        newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(responseModelName)}.dart');
+        newImports.add('package:$projectName/features/$featureName/data/$modelFolderName/${_toSnakeCase(responseModelName)}.dart');
         
         newMethods.add('''  void _on$eventName($eventName event, Emitter<${_toPascalCase(featureName)}State> emit) async {
     emit(${pascalMethodName}LoadingState());

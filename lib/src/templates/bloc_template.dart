@@ -1,24 +1,24 @@
 import 'shared.dart';
 
 class BlocTemplate {
-  static String generateBloc(String featureName, List<ApiEndpoint> endpoints) {
+  static String generateBloc(String featureName, List<ApiEndpoint> endpoints, String projectName) {
     final className = '${_toPascalCase(featureName)}Bloc';
     final useCaseClassName = '${_toPascalCase(featureName)}UseCases';
     final eventMethods = <String>[];
     final imports = <String>{
       'dart:async',
-      'package:creamati_mobile/features/$featureName/domain/usecase/${featureName}_usecase.dart',
+      'package:$projectName/features/$featureName/domain/usecase/${featureName}_usecase.dart',
       'package:flutter_bloc/flutter_bloc.dart',
       'package:freezed_annotation/freezed_annotation.dart',
       'package:injectable/injectable.dart',
-      'package:creamati_mobile/core/error/error.dart',
+      'package:$projectName/core/error/error.dart',
     };
 
     // Generate model imports
     for (final endpoint in endpoints) {
       final models = _getRequiredModels(endpoint, featureName);
       for (final model in models) {
-        imports.add('package:creamati_mobile/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
+        imports.add('package:$projectName/features/$featureName/data/model/${_toSnakeCase(model)}.dart');
       }
     }
 
@@ -51,7 +51,7 @@ ${eventMethods.join('\n\n')}
 ''';
   }
 
-  static String generateEvent(String featureName, List<ApiEndpoint> endpoints) {
+  static String generateEvent(String featureName, List<ApiEndpoint> endpoints, String projectName) {
     final events = <String>[];
     
     for (final endpoint in endpoints) {
@@ -68,7 +68,7 @@ ${events.join('\n\n')}
 ''';
   }
 
-  static String generateState(String featureName, List<ApiEndpoint> endpoints) {
+  static String generateState(String featureName, List<ApiEndpoint> endpoints, String projectName) {
     final stateFields = <String>[
       '@Default(false) bool isLoading',
       '@Default(Error.none()) Error error',
