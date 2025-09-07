@@ -80,6 +80,12 @@
       "languageVersion": "3.3"
     },
     {
+      "name": "http_methods",
+      "rootUri": "file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/http_methods-1.1.1",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "http_multi_server",
       "rootUri": "file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/http_multi_server-3.2.2",
       "packageUri": "lib/",
@@ -172,6 +178,12 @@
     {
       "name": "shelf_packages_handler",
       "rootUri": "file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/shelf_packages_handler-3.0.2",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "shelf_router",
+      "rootUri": "file:///C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/shelf_router-1.1.4",
       "packageUri": "lib/",
       "languageVersion": "2.17"
     },
@@ -302,7 +314,7 @@
       "languageVersion": "3.0"
     }
   ],
-  "generated": "2025-09-05T10:18:09.483732Z",
+  "generated": "2025-09-07T06:33:55.407531Z",
   "generator": "pub",
   "generatorVersion": "3.7.2",
   "flutterRoot": "file:///C:/flutter/src/flutter_windows_3.27.1-stable/flutter",

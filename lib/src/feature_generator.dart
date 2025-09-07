@@ -513,7 +513,24 @@ class FeatureGenerator {
     return selectedEndpoints;
   }
 
-  /// Generate feature for selected endpoints
+  /// Generate feature for selected endpoints with layer selection
+  Future<void> generateFeatureWithLayers(String featureName, List<dynamic> endpoints, Map<String, dynamic> layers, {bool append = false}) async {
+    // Convert dynamic endpoints to ApiEndpoint
+    final apiEndpoints = endpoints.cast<ApiEndpoint>();
+    
+    if (append) {
+      print('\n🔄 Updating existing feature: $featureName');
+      await _appendToFeatureWithLayers(featureName, apiEndpoints, layers);
+    } else {
+      print('\n🚀 Generating new feature: $featureName');
+      await _generateCompleteFeatureWithLayers(featureName, apiEndpoints, layers);
+    }
+    
+    print('✅ Feature "$featureName" completed successfully!');
+    print('📁 Location: lib/features/$featureName/');
+  }
+
+  /// Generate feature for selected endpoints (legacy method for CLI)
   Future<void> generateFeature(String featureName, List<ApiEndpoint> endpoints) async {
     final featurePath = path.join(projectRoot, 'lib', 'features', featureName);
     final featureExists = await Directory(featurePath).exists();
@@ -552,7 +569,79 @@ class FeatureGenerator {
     print('📁 Location: lib/features/$featureName/');
   }
 
-  /// Generate a complete new feature
+  /// Generate a complete new feature with layer selection
+  Future<void> _generateCompleteFeatureWithLayers(String featureName, List<ApiEndpoint> endpoints, Map<String, dynamic> layers) async {
+    // Create folder structure based on selected layers
+    await _createFolderStructureWithLayers(featureName, layers);
+    
+    // Generate selected layers
+    if (layers['data'] == true) {
+      await _generateDataLayer(featureName, endpoints);
+      print('📦 Data layer generated');
+    }
+    
+    if (layers['domain'] == true) {
+      await _generateDomainLayer(featureName, endpoints);
+      print('🏛️ Domain layer generated');
+    }
+    
+    if (layers['presentation'] == true) {
+      await _generatePresentationLayerWithComponents(featureName, endpoints, layers);
+      print('🎨 Presentation layer generated');
+    }
+  }
+
+  /// Append to existing feature with layer selection
+  Future<void> _appendToFeatureWithLayers(String featureName, List<ApiEndpoint> endpoints, Map<String, dynamic> layers) async {
+    // Extract existing endpoints from current service file
+    final existingEndpoints = await _extractExistingEndpoints(featureName);
+    
+    // Filter out endpoints that already exist
+    final newEndpoints = endpoints.where((endpoint) {
+      return !existingEndpoints.any((existing) => 
+        existing.path == endpoint.path && existing.method == endpoint.method);
+    }).toList();
+    
+    if (newEndpoints.isEmpty) {
+      print('⚠️ All selected endpoints already exist in this feature');
+      return;
+    }
+    
+    print('📋 Adding ${newEndpoints.length} new endpoints:');
+    for (final endpoint in newEndpoints) {
+      print('  • ${endpoint.method.toUpperCase()} ${endpoint.path}');
+    }
+    
+    // Ensure folder structure exists for selected layers
+    await _createFolderStructureWithLayers(featureName, layers);
+    
+    // Update selected layers
+    if (layers['data'] == true) {
+      await _appendModels(featureName, newEndpoints);
+      await _appendToService(featureName, newEndpoints);
+      await _appendToSource(featureName, newEndpoints);
+      await _appendToRepository(featureName, newEndpoints);
+      print('🔄 Updated data layer');
+    }
+    
+    if (layers['domain'] == true) {
+      await _appendToUseCases(featureName, newEndpoints);
+      // Also regenerate repository interface if needed
+      if (layers['data'] != true) {
+        await _generateRepositoryInterface(featureName, newEndpoints);
+      }
+      print('🔄 Updated domain layer');
+    }
+    
+    if (layers['presentation'] == true) {
+      await _appendToPresentationLayerWithComponents(featureName, newEndpoints, layers);
+      print('🔄 Updated presentation layer');
+    }
+    
+    print('🔄 Updated all selected layers with new endpoints');
+  }
+
+  /// Generate a complete new feature (legacy method for CLI)
   Future<void> _generateCompleteFeature(String featureName, List<ApiEndpoint> endpoints) async {
     // Create folder structure
     await _createFolderStructure(featureName);
@@ -609,7 +698,60 @@ class FeatureGenerator {
     print('🔄 Updated all layers with new endpoints');
   }
 
-  /// Create the folder structure
+  /// Create the folder structure with layer selection
+  Future<void> _createFolderStructureWithLayers(String featureName, Map<String, dynamic> layers) async {
+    final basePath = path.join(projectRoot, 'lib', 'features', featureName);
+    
+    // Determine which model folder to use
+    final modelFolderName = _getModelFolderNameForCreation(featureName);
+    
+    final folders = <String>[];
+    
+    // Data layer folders
+    if (layers['data'] == true) {
+      folders.addAll([
+        '$basePath/data/$modelFolderName',
+        '$basePath/data/remote/service',
+        '$basePath/data/remote/source',
+        '$basePath/data/repository',
+      ]);
+    }
+    
+    // Domain layer folders
+    if (layers['domain'] == true) {
+      folders.addAll([
+        '$basePath/domain/repository',
+        '$basePath/domain/usecase',
+      ]);
+    }
+    
+    // Presentation layer folders
+    if (layers['presentation'] == true) {
+      final presentationComponents = layers['presentationComponents'] as Map<String, dynamic>? ?? {
+        'bloc': true,
+        'screens': true,
+        'widgets': true,
+      };
+      
+      if (presentationComponents['bloc'] == true) {
+        folders.add('$basePath/presentation/bloc');
+      }
+      if (presentationComponents['screens'] == true) {
+        folders.add('$basePath/presentation/screen');
+      }
+      if (presentationComponents['widgets'] == true) {
+        folders.add('$basePath/presentation/widget');
+      }
+    }
+
+    for (final folder in folders) {
+      await Directory(folder).create(recursive: true);
+    }
+    
+    print('📁 Folder structure created for selected layers');
+  }
+
+  /// Create the folder structure (legacy method for CLI)
   Future<void> _createFolderStructure(String featureName) async {
     final basePath = path.join(projectRoot, 'lib', 'features', featureName);
     
@@ -663,7 +805,71 @@ class FeatureGenerator {
     print('🏛️ Domain layer generated');
   }
 
-  /// Generate presentation layer files
+  /// Generate presentation layer files with component selection
+  Future<void> _generatePresentationLayerWithComponents(String featureName, List<ApiEndpoint> endpoints, Map<String, dynamic> layers) async {
+    final presentationComponents = layers['presentationComponents'] as Map<String, dynamic>? ?? {
+      'bloc': true,
+      'screens': true,
+      'widgets': true,
+    };
+    
+    if (presentationComponents['bloc'] == true) {
+      // Generate bloc, events, and states
+      await _generateBloc(featureName, endpoints);
+      print('  🎯 BLoC generated');
+    }
+    
+    if (presentationComponents['screens'] == true) {
+      // Generate basic screen
+      await _generateScreen(featureName);
+      print('  📱 Screens generated');
+    }
+    
+    if (presentationComponents['widgets'] == true) {
+      // Create widgets folder (no default widgets generated)
+      final widgetsPath = path.join(projectRoot, 'lib', 'features', featureName, 'presentation', 'widget');
+      await Directory(widgetsPath).create(recursive: true);
+      print('  🧩 Widgets folder created');
+    }
+  }
+
+  /// Append to presentation layer with component selection
+  Future<void> _appendToPresentationLayerWithComponents(String featureName, List<ApiEndpoint> endpoints, Map<String, dynamic> layers) async {
+    final presentationComponents = layers['presentationComponents'] as Map<String, dynamic>? ?? {
+      'bloc': true,
+      'screens': true,
+      'widgets': true,
+    };
+    
+    if (presentationComponents['bloc'] == true) {
+      await _appendToBloc(featureName, endpoints);
+      print('  🎯 BLoC updated');
+    }
+    
+    if (presentationComponents['screens'] == true) {
+      // Generate screen if it doesn't exist
+      final screenPath = path.join(projectRoot, 'lib', 'features', featureName, 'presentation', 'screen', '${featureName}_screen.dart');
+      if (!await File(screenPath).exists()) {
+        await _generateScreen(featureName);
+        print('  📱 Screen generated');
+      } else {
+        print('  📱 Screen already exists (no changes)');
+      }
+    }
+    
+    if (presentationComponents['widgets'] == true) {
+      // Ensure widgets folder exists
+      final widgetsPath = path.join(projectRoot, 'lib', 'features', featureName, 'presentation', 'widget');
+      if (!await Directory(widgetsPath).exists()) {
+        await Directory(widgetsPath).create(recursive: true);
+        print('  🧩 Widgets folder created');
+      } else {
+        print('  🧩 Widgets folder already exists');
+      }
+    }
+  }
+
+  /// Generate presentation layer files (legacy method for CLI)
   Future<void> _generatePresentationLayer(String featureName, List<ApiEndpoint> endpoints) async {
     // Generate bloc, events, and states
     await _generateBloc(featureName, endpoints);
@@ -1155,24 +1361,665 @@ class FeatureGenerator {
     return models;
   }
 
-  /// Append to other layers (simplified implementations)
+  /// Append to source layers
   Future<void> _appendToSource(String featureName, List<ApiEndpoint> endpoints) async {
-    // For now, regenerate source files - in production you might want to append
-    await _generateSource(featureName, endpoints);
+    // Append to both source interface and implementation
+    await _appendToSourceInterface(featureName, endpoints);
+    await _appendToSourceImpl(featureName, endpoints);
+  }
+
+  /// Append new methods to source interface
+  Future<void> _appendToSourceInterface(String featureName, List<ApiEndpoint> endpoints) async {
+    final sourcePath = path.join(projectRoot, 'lib', 'features', featureName, 'data', 'remote', 'source', '${featureName}_source.dart');
+    final sourceFile = File(sourcePath);
+    
+    if (!await sourceFile.exists()) {
+      // If source interface doesn't exist, generate it normally
+      final sourceInterface = SourceTemplate.generateSourceInterface(featureName, endpoints);
+      await sourceFile.writeAsString(sourceInterface);
+      return;
+    }
+    
+    final existingContent = await sourceFile.readAsString();
+    final newMethods = <String>[];
+    final newImports = <String>{};
+    
+    // Generate new methods
+    for (final endpoint in endpoints) {
+      final methodName = _generateMethodName(endpoint);
+      
+      // Check if method already exists
+      if (!existingContent.contains('Future<') || !existingContent.contains('$methodName(')) {
+        final returnType = _generateReturnType(endpoint, featureName);
+        final parameters = _generateRepositoryMethodParameters(endpoint, featureName);
+        
+        // Add import for return type if needed
+        if (returnType != 'dynamic') {
+          final modelFolderName = _getModelFolderName(featureName);
+          newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
+        }
+        
+        newMethods.add('  Future<$returnType> $methodName($parameters);');
+      }
+    }
+    
+    if (newMethods.isEmpty) {
+      print('  🔗 No new source interface methods to add');
+      return;
+    }
+    
+    // Add new imports
+    String updatedContent = existingContent;
+    final lastImportIndex = updatedContent.lastIndexOf("import '");
+    if (lastImportIndex != -1) {
+      final nextLineIndex = updatedContent.indexOf('\n', lastImportIndex);
+      if (nextLineIndex != -1) {
+        for (final import in newImports) {
+          if (!updatedContent.contains(import)) {
+            updatedContent = updatedContent.substring(0, nextLineIndex + 1) +
+                            "import '$import';\n" +
+                            updatedContent.substring(nextLineIndex + 1);
+          }
+        }
+      }
+    }
+    
+    // Add new methods before the closing brace
+    final lastBraceIndex = updatedContent.lastIndexOf('}');
+    if (lastBraceIndex != -1) {
+      updatedContent = updatedContent.substring(0, lastBraceIndex) +
+                      '\n${newMethods.join('\n')}\n' +
+                      updatedContent.substring(lastBraceIndex);
+    }
+    
+    await sourceFile.writeAsString(updatedContent);
+    print('  🔗 Added ${newMethods.length} new source interface methods');
+  }
+
+  /// Append new methods to source implementation
+  Future<void> _appendToSourceImpl(String featureName, List<ApiEndpoint> endpoints) async {
+    final sourcePath = path.join(projectRoot, 'lib', 'features', featureName, 'data', 'remote', 'source', '${featureName}_source_impl.dart');
+    final sourceFile = File(sourcePath);
+    
+    if (!await sourceFile.exists()) {
+      // If source implementation doesn't exist, generate it normally
+      final sourceImpl = SourceTemplate.generateSourceImplementation(featureName, endpoints);
+      await sourceFile.writeAsString(sourceImpl);
+      return;
+    }
+    
+    final existingContent = await sourceFile.readAsString();
+    final newMethods = <String>[];
+    final newImports = <String>{};
+    
+    // Generate new methods
+    for (final endpoint in endpoints) {
+      final methodName = _generateMethodName(endpoint);
+      
+      // Check if method already exists
+      if (!existingContent.contains('Future<') || !existingContent.contains('$methodName(')) {
+        final returnType = _generateReturnType(endpoint, featureName);
+        final parameters = _generateRepositoryMethodParameters(endpoint, featureName);
+        
+        // Add import for return type if needed
+        if (returnType != 'dynamic') {
+          final modelFolderName = _getModelFolderName(featureName);
+          newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
+        }
+        
+        newMethods.add('''  @override
+  Future<$returnType> $methodName($parameters) async {
+    return await service.$methodName($parameters);
+  }''');
+      }
+    }
+    
+    if (newMethods.isEmpty) {
+      print('  ⚡ No new source implementation methods to add');
+      return;
+    }
+    
+    // Add new imports
+    String updatedContent = existingContent;
+    final lastImportIndex = updatedContent.lastIndexOf("import '");
+    if (lastImportIndex != -1) {
+      final nextLineIndex = updatedContent.indexOf('\n', lastImportIndex);
+      if (nextLineIndex != -1) {
+        for (final import in newImports) {
+          if (!updatedContent.contains(import)) {
+            updatedContent = updatedContent.substring(0, nextLineIndex + 1) +
+                            "import '$import';\n" +
+                            updatedContent.substring(nextLineIndex + 1);
+          }
+        }
+      }
+    }
+    
+    // Add new methods before the closing brace
+    final lastBraceIndex = updatedContent.lastIndexOf('}');
+    if (lastBraceIndex != -1) {
+      updatedContent = updatedContent.substring(0, lastBraceIndex) +
+                      '\n${newMethods.join('\n\n')}\n' +
+                      updatedContent.substring(lastBraceIndex);
+    }
+    
+    await sourceFile.writeAsString(updatedContent);
+    print('  ⚡ Added ${newMethods.length} new source implementation methods');
   }
 
   Future<void> _appendToRepository(String featureName, List<ApiEndpoint> endpoints) async {
-    // For now, regenerate repository files - in production you might want to append
-    await _generateRepositoryImpl(featureName, endpoints);
+    // Append to both repository interface and implementation
+    await _appendToRepositoryInterface(featureName, endpoints);
+    await _appendToRepositoryImpl(featureName, endpoints);
+  }
+
+  /// Append new methods to repository interface
+  Future<void> _appendToRepositoryInterface(String featureName, List<ApiEndpoint> endpoints) async {
+    final repositoryPath = path.join(projectRoot, 'lib', 'features', featureName, 'domain', 'repository', '${featureName}_repository.dart');
+    final repositoryFile = File(repositoryPath);
+    
+    if (!await repositoryFile.exists()) {
+      // If repository interface doesn't exist, generate it normally
+      await _generateRepositoryInterface(featureName, endpoints);
+      return;
+    }
+    
+    final existingContent = await repositoryFile.readAsString();
+    final newMethods = <String>[];
+    final newImports = <String>{};
+    
+    // Generate new methods
+    for (final endpoint in endpoints) {
+      final methodName = _generateMethodName(endpoint);
+      
+      // Check if method already exists
+      if (!existingContent.contains('Future<') || !existingContent.contains('$methodName(')) {
+        final returnType = _generateReturnType(endpoint, featureName);
+        final parameters = _generateRepositoryMethodParameters(endpoint, featureName);
+        
+        // Add import for return type if needed
+        if (returnType != 'dynamic') {
+          final modelFolderName = _getModelFolderName(featureName);
+          newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
+        }
+        
+        newMethods.add('  Future<$returnType> $methodName($parameters);');
+      }
+    }
+    
+    if (newMethods.isEmpty) {
+      print('  🏛️ No new repository interface methods to add');
+      return;
+    }
+    
+    // Add new imports
+    String updatedContent = existingContent;
+    final lastImportIndex = updatedContent.lastIndexOf("import '");
+    if (lastImportIndex != -1) {
+      final nextLineIndex = updatedContent.indexOf('\n', lastImportIndex);
+      if (nextLineIndex != -1) {
+        for (final import in newImports) {
+          if (!updatedContent.contains(import)) {
+            updatedContent = updatedContent.substring(0, nextLineIndex + 1) +
+                            "import '$import';\n" +
+                            updatedContent.substring(nextLineIndex + 1);
+          }
+        }
+      }
+    }
+    
+    // Add new methods before the closing brace
+    final lastBraceIndex = updatedContent.lastIndexOf('}');
+    if (lastBraceIndex != -1) {
+      updatedContent = updatedContent.substring(0, lastBraceIndex) +
+                      '\n${newMethods.join('\n')}\n' +
+                      updatedContent.substring(lastBraceIndex);
+    }
+    
+    await repositoryFile.writeAsString(updatedContent);
+    print('  🏛️ Added ${newMethods.length} new repository interface methods');
+  }
+
+  /// Append new methods to repository implementation
+  Future<void> _appendToRepositoryImpl(String featureName, List<ApiEndpoint> endpoints) async {
+    final repositoryPath = path.join(projectRoot, 'lib', 'features', featureName, 'data', 'repository', '${featureName}_repository_impl.dart');
+    final repositoryFile = File(repositoryPath);
+    
+    if (!await repositoryFile.exists()) {
+      // If repository implementation doesn't exist, generate it normally
+      await _generateRepositoryImpl(featureName, endpoints);
+      return;
+    }
+    
+    final existingContent = await repositoryFile.readAsString();
+    final newMethods = <String>[];
+    final newImports = <String>{};
+    
+    // Generate new methods
+    for (final endpoint in endpoints) {
+      final methodName = _generateMethodName(endpoint);
+      
+      // Check if method already exists
+      if (!existingContent.contains('Future<') || !existingContent.contains('$methodName(')) {
+        final returnType = _generateReturnType(endpoint, featureName);
+        final parameters = _generateRepositoryMethodParameters(endpoint, featureName);
+        
+        // Add import for return type if needed
+        if (returnType != 'dynamic') {
+          final modelFolderName = _getModelFolderName(featureName);
+          newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
+        }
+        
+        newMethods.add('''  @override
+  Future<$returnType> $methodName($parameters) async {
+    return await source.$methodName($parameters);
+  }''');
+      }
+    }
+    
+    if (newMethods.isEmpty) {
+      print('  📦 No new repository implementation methods to add');
+      return;
+    }
+    
+    // Add new imports
+    String updatedContent = existingContent;
+    final lastImportIndex = updatedContent.lastIndexOf("import '");
+    if (lastImportIndex != -1) {
+      final nextLineIndex = updatedContent.indexOf('\n', lastImportIndex);
+      if (nextLineIndex != -1) {
+        for (final import in newImports) {
+          if (!updatedContent.contains(import)) {
+            updatedContent = updatedContent.substring(0, nextLineIndex + 1) +
+                            "import '$import';\n" +
+                            updatedContent.substring(nextLineIndex + 1);
+          }
+        }
+      }
+    }
+    
+    // Add new methods before the closing brace
+    final lastBraceIndex = updatedContent.lastIndexOf('}');
+    if (lastBraceIndex != -1) {
+      updatedContent = updatedContent.substring(0, lastBraceIndex) +
+                      '\n${newMethods.join('\n\n')}\n' +
+                      updatedContent.substring(lastBraceIndex);
+    }
+    
+    await repositoryFile.writeAsString(updatedContent);
+    print('  📦 Added ${newMethods.length} new repository implementation methods');
+  }
+
+  /// Generate parameters for repository methods
+  String _generateRepositoryMethodParameters(ApiEndpoint endpoint, String featureName) {
+    final parameters = <String>[];
+    
+    // Add path parameters
+    for (final param in endpoint.parameters) {
+      if (param.location == 'path') {
+        parameters.add('${param.type} ${param.name}');
+      }
+    }
+    
+    // Add query parameters
+    for (final param in endpoint.parameters) {
+      if (param.location == 'query') {
+        parameters.add('${param.type}? ${param.name}');
+      }
+    }
+    
+    // Add request body if exists
+    if (endpoint.requestBody != null) {
+      final requestModelName = _generateRequestModelName(endpoint, featureName);
+      parameters.add('$requestModelName params');
+    }
+    
+    return parameters.join(', ');
   }
 
   Future<void> _appendToUseCases(String featureName, List<ApiEndpoint> endpoints) async {
-    // For now, regenerate use case files - in production you might want to append
-    await _generateUseCases(featureName, endpoints);
+    final useCasePath = path.join(projectRoot, 'lib', 'features', featureName, 'domain', 'usecase', '${featureName}_usecase.dart');
+    final useCaseFile = File(useCasePath);
+    
+    if (!await useCaseFile.exists()) {
+      // If use case file doesn't exist, generate it normally
+      await _generateUseCases(featureName, endpoints);
+      return;
+    }
+    
+    final existingContent = await useCaseFile.readAsString();
+    final newMethods = <String>[];
+    final newImports = <String>{};
+    
+    // Generate new methods for the main UseCases class
+    for (final endpoint in endpoints) {
+      final methodName = _generateMethodName(endpoint);
+      
+      // Check if method already exists in the main UseCases class
+      if (!existingContent.contains('Future<') || !existingContent.contains('$methodName(')) {
+        final returnType = _generateReturnType(endpoint, featureName);
+        final parameters = _generateRepositoryMethodParameters(endpoint, featureName);
+        
+        // Add import for return type if needed
+        if (returnType != 'dynamic') {
+          final modelFolderName = _getModelFolderName(featureName);
+          newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(returnType)}.dart');
+        }
+        
+        // Generate the method based on the pattern (with Either<Error, T> or direct Future<T>)
+        if (existingContent.contains('Either<Error,')) {
+          // Use Either pattern like existing methods
+          newMethods.add('  Future<Either<Error, $returnType>> $methodName($parameters) =>\n      repository.$methodName($parameters);');
+        } else {
+          // Use direct Future pattern
+          newMethods.add('  Future<$returnType> $methodName($parameters) =>\n      repository.$methodName($parameters);');
+        }
+      }
+    }
+    
+    if (newMethods.isEmpty) {
+      print('  🎯 No new use case methods to add');
+      return;
+    }
+    
+    // Add new imports
+    String updatedContent = existingContent;
+    final lastImportIndex = updatedContent.lastIndexOf("import '");
+    if (lastImportIndex != -1) {
+      final nextLineIndex = updatedContent.indexOf('\n', lastImportIndex);
+      if (nextLineIndex != -1) {
+        for (final import in newImports) {
+          if (!updatedContent.contains(import)) {
+            updatedContent = updatedContent.substring(0, nextLineIndex + 1) +
+                            "import '$import';\n" +
+                            updatedContent.substring(nextLineIndex + 1);
+          }
+        }
+      }
+    }
+    
+    // Find the main UseCases class and add methods before its closing brace
+    final useCasesClassName = '${_toPascalCase(featureName)}UseCases';
+    final classIndex = updatedContent.indexOf('class $useCasesClassName');
+    if (classIndex != -1) {
+      // Find the closing brace of the main UseCases class (before any other classes)
+      int braceCount = 0;
+      int closingBraceIndex = -1;
+      bool foundOpenBrace = false;
+      
+      for (int i = classIndex; i < updatedContent.length; i++) {
+        if (updatedContent[i] == '{') {
+          foundOpenBrace = true;
+          braceCount++;
+        } else if (updatedContent[i] == '}') {
+          braceCount--;
+          if (foundOpenBrace && braceCount == 0) {
+            closingBraceIndex = i;
+            break;
+          }
+        }
+      }
+      
+      if (closingBraceIndex != -1) {
+        updatedContent = updatedContent.substring(0, closingBraceIndex) +
+                        '\n${newMethods.join('\n\n')}\n' +
+                        updatedContent.substring(closingBraceIndex);
+      }
+    }
+    
+    await useCaseFile.writeAsString(updatedContent);
+    print('  🎯 Added ${newMethods.length} new use case methods');
   }
 
   Future<void> _appendToBloc(String featureName, List<ApiEndpoint> endpoints) async {
-    // For now, regenerate BLoC files - in production you might want to append
-    await _generateBloc(featureName, endpoints);
+    // Append to existing BLoC files
+    await _appendToBlocEvents(featureName, endpoints);
+    await _appendToBlocStates(featureName, endpoints);
+    await _appendToBlocClass(featureName, endpoints);
+  }
+
+  /// Append new events to existing bloc events file
+  Future<void> _appendToBlocEvents(String featureName, List<ApiEndpoint> endpoints) async {
+    final eventPath = path.join(projectRoot, 'lib', 'features', featureName, 'presentation', 'bloc', '${featureName}_event.dart');
+    final eventFile = File(eventPath);
+    
+    if (!await eventFile.exists()) {
+      // If event file doesn't exist, generate it normally
+      final eventContent = BlocTemplate.generateEvent(featureName, endpoints);
+      await eventFile.writeAsString(eventContent);
+      return;
+    }
+    
+    final existingContent = await eventFile.readAsString();
+    final newEvents = <String>[];
+    
+    // Check if using freezed pattern or simple class pattern
+    if (existingContent.contains('@freezed') && existingContent.contains('const factory')) {
+      // Generate new factory methods for freezed pattern
+      for (final endpoint in endpoints) {
+        final methodName = _generateMethodName(endpoint);
+        final eventMethodName = '${methodName}Requested';
+        
+        // Check if event method already exists
+        if (!existingContent.contains('const factory') || !existingContent.contains('$eventMethodName()')) {
+          newEvents.add('  const factory ${_toPascalCase(featureName)}Event.$eventMethodName() = $eventMethodName;');
+        }
+      }
+      
+      if (newEvents.isEmpty) {
+        print('  📝 No new events to add');
+        return;
+      }
+      
+      // Find the closing brace of the freezed class (before the last closing brace)
+      final factoryPattern = RegExp(r'const factory.*?=.*?;');
+      final matches = factoryPattern.allMatches(existingContent);
+      if (matches.isNotEmpty) {
+        final lastMatch = matches.last;
+        final insertIndex = lastMatch.end;
+        final updatedContent = existingContent.substring(0, insertIndex) +
+                              '\n\n${newEvents.join('\n')}' +
+                              existingContent.substring(insertIndex);
+        await eventFile.writeAsString(updatedContent);
+        print('  📝 Added ${newEvents.length} new event methods');
+      }
+    } else {
+      // Generate simple event classes for non-freezed pattern
+      for (final endpoint in endpoints) {
+        final methodName = _generateMethodName(endpoint);
+        final eventName = '${_toPascalCase(methodName)}Event';
+        
+        // Check if event already exists
+        if (!existingContent.contains('class $eventName')) {
+          newEvents.add('class $eventName extends ${_toPascalCase(featureName)}Event {}');
+        }
+      }
+      
+      if (newEvents.isEmpty) {
+        print('  📝 No new events to add');
+        return;
+      }
+      
+      // Add new events before the closing brace
+      final lastBraceIndex = existingContent.lastIndexOf('}');
+      if (lastBraceIndex != -1) {
+        final updatedContent = existingContent.substring(0, lastBraceIndex) +
+                              '\n${newEvents.join('\n\n')}\n' +
+                              existingContent.substring(lastBraceIndex);
+        await eventFile.writeAsString(updatedContent);
+        print('  📝 Added ${newEvents.length} new events');
+      }
+    }
+  }
+
+  /// Append new states to existing bloc states file
+  Future<void> _appendToBlocStates(String featureName, List<ApiEndpoint> endpoints) async {
+    final statePath = path.join(projectRoot, 'lib', 'features', featureName, 'presentation', 'bloc', '${featureName}_state.dart');
+    final stateFile = File(statePath);
+    
+    if (!await stateFile.exists()) {
+      // If state file doesn't exist, generate it normally
+      final stateContent = BlocTemplate.generateState(featureName, endpoints);
+      await stateFile.writeAsString(stateContent);
+      return;
+    }
+    
+    final existingContent = await stateFile.readAsString();
+    final newStateFields = <String>[];
+    
+    // Check if using freezed pattern
+    if (existingContent.contains('@freezed') && existingContent.contains('const factory')) {
+      // Generate new fields for the main freezed state class
+      for (final endpoint in endpoints) {
+        final methodName = _generateMethodName(endpoint);
+        final responseModelName = _generateResponseModelName(endpoint, featureName);
+        final fieldName = '${methodName}Response';
+        
+        // Check if field already exists
+        if (!existingContent.contains('@Default(null) $responseModelName?') && !existingContent.contains('$fieldName,')) {
+          newStateFields.add('    @Default(null) $responseModelName? $fieldName,');
+        }
+      }
+      
+      if (newStateFields.isEmpty) {
+        print('  🏛️ No new state fields to add');
+        return;
+      }
+      
+      // Find the constructor parameters and add new fields before the closing parenthesis
+      final constructorPattern = RegExp(r'const factory.*?\{([^}]+)\}');
+      final match = constructorPattern.firstMatch(existingContent);
+      if (match != null) {
+        final constructorEnd = match.end - 2; // Before the closing }
+        final updatedContent = existingContent.substring(0, constructorEnd) +
+                              '\n${newStateFields.join('\n')}' +
+                              existingContent.substring(constructorEnd);
+        await stateFile.writeAsString(updatedContent);
+        print('  🏛️ Added ${newStateFields.length} new state fields');
+      }
+    } else {
+      // Generate simple state classes for non-freezed pattern (fallback)
+      final newStates = <String>[];
+      
+      for (final endpoint in endpoints) {
+        final methodName = _generateMethodName(endpoint);
+        final pascalMethodName = _toPascalCase(methodName);
+        
+        final loadingState = '${pascalMethodName}LoadingState';
+        final successState = '${pascalMethodName}SuccessState';
+        final errorState = '${pascalMethodName}ErrorState';
+        
+        // Check if states already exist and add missing ones
+        if (!existingContent.contains('class $loadingState')) {
+          newStates.add('class $loadingState extends ${_toPascalCase(featureName)}State {}');
+        }
+        
+        final responseModelName = _generateResponseModelName(endpoint, featureName);
+        if (!existingContent.contains('class $successState')) {
+          newStates.add('''class $successState extends ${_toPascalCase(featureName)}State {
+  final $responseModelName data;
+  $successState(this.data);
+}''');
+        }
+        
+        if (!existingContent.contains('class $errorState')) {
+          newStates.add('''class $errorState extends ${_toPascalCase(featureName)}State {
+  final String message;
+  $errorState(this.message);
+}''');
+        }
+      }
+      
+      if (newStates.isEmpty) {
+        print('  🏛️ No new states to add');
+        return;
+      }
+      
+      // Add new states before the closing brace
+      final lastBraceIndex = existingContent.lastIndexOf('}');
+      if (lastBraceIndex != -1) {
+        final updatedContent = existingContent.substring(0, lastBraceIndex) +
+                              '\n${newStates.join('\n\n')}\n' +
+                              existingContent.substring(lastBraceIndex);
+        await stateFile.writeAsString(updatedContent);
+        print('  🏛️ Added ${newStates.length} new states');
+      }
+    }
+  }
+
+  /// Append new methods to existing bloc class
+  Future<void> _appendToBlocClass(String featureName, List<ApiEndpoint> endpoints) async {
+    final blocPath = path.join(projectRoot, 'lib', 'features', featureName, 'presentation', 'bloc', '${featureName}_bloc.dart');
+    final blocFile = File(blocPath);
+    
+    if (!await blocFile.exists()) {
+      // If bloc file doesn't exist, generate it normally
+      final blocContent = BlocTemplate.generateBloc(featureName, endpoints);
+      await blocFile.writeAsString(blocContent);
+      return;
+    }
+    
+    final existingContent = await blocFile.readAsString();
+    final newMethods = <String>[];
+    final newImports = <String>{};
+    
+    // Generate new event handlers
+    for (final endpoint in endpoints) {
+      final methodName = _generateMethodName(endpoint);
+      final eventName = '${_toPascalCase(methodName)}Event';
+      
+      // Check if handler already exists
+      if (!existingContent.contains('_on$eventName')) {
+        final pascalMethodName = _toPascalCase(methodName);
+        final useCaseName = '${methodName}UseCase';
+        
+        // Add import for model if needed
+        final responseModelName = _generateResponseModelName(endpoint, featureName);
+        final modelFolderName = _getModelFolderName(featureName);
+        newImports.add('package:creamati_mobile/features/$featureName/data/$modelFolderName/${_toSnakeCase(responseModelName)}.dart');
+        
+        newMethods.add('''  void _on$eventName($eventName event, Emitter<${_toPascalCase(featureName)}State> emit) async {
+    emit(${pascalMethodName}LoadingState());
+    try {
+      final result = await $useCaseName();
+      emit(${pascalMethodName}SuccessState(result));
+    } catch (e) {
+      emit(${pascalMethodName}ErrorState(e.toString()));
+    }
+  }''');
+      }
+    }
+    
+    if (newMethods.isEmpty) {
+      print('  🎯 No new BLoC methods to add');
+      return;
+    }
+    
+    // Add new imports
+    String updatedContent = existingContent;
+    final lastImportIndex = updatedContent.lastIndexOf("import '");
+    if (lastImportIndex != -1) {
+      final nextLineIndex = updatedContent.indexOf('\n', lastImportIndex);
+      if (nextLineIndex != -1) {
+        for (final import in newImports) {
+          if (!updatedContent.contains(import)) {
+            updatedContent = updatedContent.substring(0, nextLineIndex + 1) +
+                            "import '$import';\n" +
+                            updatedContent.substring(nextLineIndex + 1);
+          }
+        }
+      }
+    }
+    
+    // Add new methods before the closing brace
+    final lastBraceIndex = updatedContent.lastIndexOf('}');
+    if (lastBraceIndex != -1) {
+      updatedContent = updatedContent.substring(0, lastBraceIndex) +
+                      '\n${newMethods.join('\n\n')}\n' +
+                      updatedContent.substring(lastBraceIndex);
+    }
+    
+    await blocFile.writeAsString(updatedContent);
+    print('  🎯 Added ${newMethods.length} new BLoC methods');
   }
 }
